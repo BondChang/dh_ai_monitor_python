@@ -42,13 +42,17 @@ subtype = config.getint('RTSP', 'subtype', fallback=1)  # 辅码流
 root_directory = config.get('RTSP', 'root_directory', fallback='E:/fmu/temp')
 interval = config.getint('RTSP', 'interval', fallback=30)  # 时间间隔，单位秒
 ip_timeout = config.getint('RTSP', 'ip_timeout', fallback=10)  # 单个IP超时时间，单位秒
-max_workers = config.getint('RTSP', 'max_workers', fallback=1)  # 最大工作线程数
+max_workers = config.getint('RTSP', 'max_workers', fallback=10)  # 最大工作线程数
 
 # 配置文件中的参数
 model_path = config.get('Detection', 'model_path', fallback='yolov8.onnx')  # 模型路径
 confidence_thres = config.getfloat('Detection', 'confidence_thres', fallback=0.5)  # 置信度阈值
 iou_thres = config.getfloat('Detection', 'iou_thres', fallback=0.5)  # IoU阈值
 output_json = config.get('Detection', 'output_json', fallback='detection_results.json')  # 输出的JSON文件名
+
+detection_executor = ThreadPoolExecutor(max_workers=max_workers)
+# 全局线程池（用于IP截图任务）
+capture_executor = ThreadPoolExecutor(max_workers=max_workers)  # 从配置中读取max_workers
 
 # 确保根目录存在
 if not os.path.exists(root_directory):
@@ -71,9 +75,11 @@ def async_process_images(model_path, img_dir, confidence_thres, iou_thres, outpu
     """
     使用异步线程进行目标检测
     """
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        future = executor.submit(process_images, model_path, img_dir, confidence_thres, iou_thres, output_json, logging)
-        return future
+    future = detection_executor.submit(
+        process_images,
+        model_path, img_dir, confidence_thres, iou_thres, output_json, logging
+    )
+    return future
 
 
 # 截取图片的函数
@@ -181,6 +187,8 @@ def capture_from_ip(ip, timestamp):
 
 # 主函数，遍历所有IP并控制截图间隔
 def main():
+    global detection_executor  # 使用全局线程池
+    futures = []  # 保存所有检测任务的 Future
     ip_list = get_ip_list(ip_range)
     while True:
         start_time = time.time()  # 记录开始时间
@@ -190,10 +198,9 @@ def main():
         for ip in ip_list:
             timestamp = get_timestamp()
             ip_capture_time = capture_with_timeout(ip, timestamp)
-            logging.info('ai')
             img_dir = f"{root_directory}/{ip}/{timestamp}"
-            async_process_images(model_path, img_dir, confidence_thres, iou_thres, output_json)
-            logging.info('ai123')
+            future = async_process_images(model_path, img_dir, confidence_thres, iou_thres, output_json)
+            futures.append(future)
             if ip_capture_time is not None:
                 total_capture_time += ip_capture_time
             else:
@@ -208,6 +215,14 @@ def main():
             time.sleep(interval - elapsed_time)  # 等待剩余时间
         else:
             logging.warning(f"Interval exceeded. Proceeding to the next round.")
+
+        for future in futures:
+            try:
+                future.result(timeout=3600)  # 设置合理超时时间
+            except TimeoutError:
+                logging.error("Detection task timed out")
+            except Exception as e:
+                logging.error(f"Detection task failed: {e}")
 
 
 # 运行主函数
