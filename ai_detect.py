@@ -1,5 +1,7 @@
 # coding:utf-8
 import argparse
+import time
+
 import cv2
 import numpy as np
 import onnxruntime as ort
@@ -284,7 +286,7 @@ class YOLOv8:
         return img, detections
 
 
-def process_images(model_path, img_dir, confidence_thres, iou_thres, output_json):
+def process_images(model_path, img_dir, confidence_thres, iou_thres, output_json,logging):
     """
     处理指定目录下的三张图片，进行目标检测、标注并生成检测结果汇总的 JSON 文件。
     参数:
@@ -296,21 +298,21 @@ def process_images(model_path, img_dir, confidence_thres, iou_thres, output_json
     """
     # 初始化YOLOv8模型
     detector = YOLOv8(model_path, confidence_thres, iou_thres)
-
     # 指定要处理的图片名称
-    image_names = ["channel1.jpg", "channel2.jpg", "channel3.jpg"]
+    image_names = ["channel_1.jpg", "channel_2.jpg", "channel_3.jpg"]
     results = {}
 
     for image_name in image_names:
         img_path = os.path.join(img_dir, image_name)
+        # logging.info(img_path)
         if not os.path.isfile(img_path):
-            print(f"图片 {image_name} 不存在于目录 {img_dir} 中。")
+            logging.info(f"图片 {image_name} 不存在于目录 {img_dir} 中。")
             continue
 
         # 读取图像
         img = cv2.imread(img_path)
         if img is None:
-            print(f"无法读取图片 {img_path}。")
+            logging.info(f"无法读取图片 {img_path}。")
             continue
 
         # 进行推理
@@ -318,34 +320,33 @@ def process_images(model_path, img_dir, confidence_thres, iou_thres, output_json
 
         # 如果没有检测到目标或目标得分低于阈值，跳过生成标注图像
         if not detections:
-            print(f"图片 {image_name} 未检测到目标或所有目标得分低于阈值，跳过标注图像生成。")
+            logging.info(f"图片 {image_name} 未检测到目标或所有目标得分低于阈值，跳过标注图像生成。")
             continue
 
         # 保存标注后的图片
         output_img_path = os.path.join(img_dir, f"annotated_{image_name}")
         cv2.imwrite(output_img_path, annotated_img)
-        print(f"标注后的图片已保存至 {output_img_path}")
+        logging.info(f"标注后的图片已保存至 {output_img_path}")
 
         # 记录检测结果
         results[image_name] = detections
 
     # 设置JSON文件的输出路径
     output_json_path = os.path.join(img_dir, output_json)
-
     # 保存检测结果到 JSON 文件
     with open(output_json_path, 'w', encoding='utf-8') as f:
         json.dump(results, f, ensure_ascii=False, indent=4)
-    print(f"检测结果已保存至 {output_json_path}")
+    logging.info(f"检测结果已保存至 {output_json_path}")
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="使用YOLOv11 ONNX模型进行目标检测，并生成检测结果汇总的 JSON 文件。")
-    parser.add_argument("--model", type=str, default='ai_detect.onnx', required=False, help="ONNX模型的路径.")
-    parser.add_argument("--img_dir", type=str, required=False, default='C:/Users/bondc/Desktop/1',
-                        help="存放图片的目录路径.")
-    parser.add_argument("--conf-thres", type=float, default=0.5, help="置信度阈值.")
-    parser.add_argument("--iou-thres", type=float, default=0.5, help="IoU（交并比）阈值.")
-    parser.add_argument("--output-json", type=str, default="detection_results.json", help="输出的 JSON 文件路径.")
-    args = parser.parse_args()
-
-    process_images(args.model, args.img_dir, args.conf_thres, args.iou_thres, args.output_json)
+# if __name__ == "__main__":
+#     parser = argparse.ArgumentParser(description="使用YOLOv11 ONNX模型进行目标检测，并生成检测结果汇总的 JSON 文件。")
+#     parser.add_argument("--model", type=str, default='ai_detect.onnx', required=False, help="ONNX模型的路径.")
+#     parser.add_argument("--img_dir", type=str, required=False, default='C:/Users/bondc/Desktop/1',
+#                         help="存放图片的目录路径.")
+#     parser.add_argument("--conf-thres", type=float, default=0.5, help="置信度阈值.")
+#     parser.add_argument("--iou-thres", type=float, default=0.5, help="IoU（交并比）阈值.")
+#     parser.add_argument("--output-json", type=str, default="detection_results.json", help="输出的 JSON 文件路径.")
+#     args = parser.parse_args()
+#
+#     process_images(args.model, args.img_dir, args.conf_thres, args.iou_thres, args.output_json)

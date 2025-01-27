@@ -4,11 +4,12 @@ import os
 import threading
 import configparser
 import ipaddress
-import logging
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
 import logging
 from logging.handlers import RotatingFileHandler
+
+from ai_detect import process_images
 
 # 配置日志
 log_file = 'capture.log'  # 日志文件路径
@@ -43,6 +44,12 @@ interval = config.getint('RTSP', 'interval', fallback=30)  # 时间间隔，单�
 ip_timeout = config.getint('RTSP', 'ip_timeout', fallback=10)  # 单个IP超时时间，单位秒
 max_workers = config.getint('RTSP', 'max_workers', fallback=1)  # 最大工作线程数
 
+# 配置文件中的参数
+model_path = config.get('Detection', 'model_path', fallback='yolov8.onnx')  # 模型路径
+confidence_thres = config.getfloat('Detection', 'confidence_thres', fallback=0.5)  # 置信度阈值
+iou_thres = config.getfloat('Detection', 'iou_thres', fallback=0.5)  # IoU阈值
+output_json = config.get('Detection', 'output_json', fallback='detection_results.json')  # 输出的JSON文件名
+
 # 确保根目录存在
 if not os.path.exists(root_directory):
     os.makedirs(root_directory)
@@ -59,6 +66,16 @@ def is_daytime():
     return 6 <= current_hour < 18
 
 
+# 异步目标检测
+def async_process_images(model_path, img_dir, confidence_thres, iou_thres, output_json):
+    """
+    使用异步线程进行目标检测
+    """
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        future = executor.submit(process_images, model_path, img_dir, confidence_thres, iou_thres, output_json, logging)
+        return future
+
+
 # 截取图片的函数
 def capture_image(ip, channel, timestamp):
     start_time = time.time()  # 记录开始时间
@@ -66,10 +83,8 @@ def capture_image(ip, channel, timestamp):
     # 构造RTSP URL
     rtsp_url = f"rtsp://{user}:{password}@{ip}:{port}/cam/realmonitor?channel={channel}&subtype={subtype}"
     logging.info(f"Connecting to: {rtsp_url}")
-
     # 打开RTSP流
     cap = cv2.VideoCapture(rtsp_url)
-
 
     # 检查是否成功连接
     if not cap.isOpened():
@@ -97,7 +112,6 @@ def capture_image(ip, channel, timestamp):
 
     # 释放资源
     cap.release()
-
     # 返回本次截图操作的耗时
     elapsed_time = time.time() - start_time
     return elapsed_time
@@ -176,7 +190,10 @@ def main():
         for ip in ip_list:
             timestamp = get_timestamp()
             ip_capture_time = capture_with_timeout(ip, timestamp)
-
+            logging.info('ai')
+            img_dir = f"{root_directory}/{ip}/timestamp"
+            async_process_images(model_path, img_dir, confidence_thres, iou_thres, output_json)
+            logging.info('ai123')
             if ip_capture_time is not None:
                 total_capture_time += ip_capture_time
             else:
