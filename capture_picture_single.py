@@ -191,7 +191,7 @@ def main():
             timestamp = get_timestamp()
             ip_capture_time = capture_with_timeout(ip, timestamp)
             logging.info('ai')
-            img_dir = f"{root_directory}/{ip}/timestamp"
+            img_dir = f"{root_directory}/{ip}/{timestamp}"
             async_process_images(model_path, img_dir, confidence_thres, iou_thres, output_json)
             logging.info('ai123')
             if ip_capture_time is not None:
