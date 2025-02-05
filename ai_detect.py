@@ -121,10 +121,10 @@ class YOLOv8:
             onnxruntime.InferenceSession: ONNX推理会话。
         """
         if torch.cuda.is_available():
-            print("Using CUDA")
+            # print("Using CUDA")
             providers = ["CUDAExecutionProvider"]
         else:
-            print("Using CPU")
+            # print("Using CPU")
             providers = ["CPUExecutionProvider"]
         session_options = ort.SessionOptions()
         session_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL

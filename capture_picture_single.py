@@ -188,7 +188,7 @@ def capture_from_ip(ip, timestamp):
 # 主函数，遍历所有IP并控制截图间隔
 def main():
     global detection_executor  # 使用全局线程池
-    futures = []  # 保存所有检测任务的 Future
+    # futures = []  # 保存所有检测任务的 Future
     ip_list = get_ip_list(ip_range)
     while True:
         start_time = time.time()  # 记录开始时间
@@ -199,8 +199,8 @@ def main():
             timestamp = get_timestamp()
             ip_capture_time = capture_with_timeout(ip, timestamp)
             img_dir = f"{root_directory}/{ip}/{timestamp}"
-            future = async_process_images(model_path, img_dir, confidence_thres, iou_thres, output_json)
-            futures.append(future)
+            # future = async_process_images(model_path, img_dir, confidence_thres, iou_thres, output_json)
+            # futures.append(future)
             if ip_capture_time is not None:
                 total_capture_time += ip_capture_time
             else:
@@ -216,13 +216,13 @@ def main():
         else:
             logging.warning(f"Interval exceeded. Proceeding to the next round.")
 
-        for future in futures:
-            try:
-                future.result(timeout=3600)  # 设置合理超时时间
-            except TimeoutError:
-                logging.error("Detection task timed out")
-            except Exception as e:
-                logging.error(f"Detection task failed: {e}")
+        # for future in futures:
+        #     try:
+        #         future.result(timeout=3600)  # 设置合理超时时间
+        #     except TimeoutError:
+        #         logging.error("Detection task timed out")
+        #     except Exception as e:
+        #         logging.error(f"Detection task failed: {e}")
 
 
 # 运行主函数

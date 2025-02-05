@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['capture_picture_single.py'],
+    ['capture_with_detect.py'],
     pathex=[],
     binaries=[],
     datas=[],
