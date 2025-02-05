@@ -38,7 +38,7 @@ root_directory = config.get('RTSP', 'root_directory', fallback='E:/fmu/temp')
 interval = config.getint('RTSP', 'interval', fallback=30)
 ip_timeout = config.getint('RTSP', 'ip_timeout', fallback=10)
 max_workers = config.getint('RTSP', 'max_workers', fallback=10)
-
+excluded_ips = config.get('RTSP', 'excluded_ips', fallback='').split(',')
 # 目标检测配置
 model_path = config.get('Detection', 'model_path', fallback='yolov8.onnx')
 confidence_thres = config.getfloat('Detection', 'confidence_thres', fallback=0.5)
@@ -145,7 +145,10 @@ def get_ip_list(ip_range):
 
     # 从start_ip到end_ip遍历，生成所有IP
     while current_ip <= end_ip:
-        ip_list.append(str(current_ip))
+        ip_str = str(current_ip)
+        # 如果当前IP在排除列表中，则跳过
+        if ip_str not in excluded_ips:
+            ip_list.append(ip_str)
         current_ip += 1  # 下一地址
 
     return ip_list
